@@ -2304,10 +2304,10 @@ class PriceHistory:
                     print("")
                     print(warning_msg)
                     print(df_na)
-                    start = df_na.index[0].date()
-                    end = start + max(self.itd, timedelta(days=1))
-                    sched = yfct.GetExchangeScheduleIntervals(self.exchange, self.interval, start, end)
-                    print("- schedule intervals:") ; print(sched)
+                    dbg_start = df_na.index[0].date()
+                    dbg_end = dbg_start + max(self.itd, timedelta(days=1))
+                    dbg_sched = yfct.GetExchangeScheduleIntervals(self.exchange, self.interval, dbg_start, dbg_end)
+                    print("- schedule intervals:") ; print(dbg_sched)
                     msg = "Accept into cache anyway?"
                     if False:
                         accept = True
