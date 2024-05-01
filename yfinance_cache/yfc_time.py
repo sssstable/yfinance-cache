@@ -606,6 +606,7 @@ def GetExchangeScheduleIntervals(exchange, interval, start, end, discardTimes=No
             return None
         # Transfer IntervalIndex to DataFrame so can modify
         intervals_df = pd.DataFrame(data={"interval_open": ti.left.tz_convert(tz), "interval_close": ti.right.tz_convert(tz)})
+        print("DEBUG: dt_now =", dt_now)  # debugging
         if exclude_future:
             #intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now]
             intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now+itd]  # debugging: test an idea
