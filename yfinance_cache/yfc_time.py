@@ -12,6 +12,9 @@ import pandas as pd
 import numpy as np
 import exchange_calendars as xcal
 
+import logging
+yfc_logger = logging.getLogger('yfinance_cache')
+
 from . import yfc_dat as yfcd
 from . import yfc_cache_manager as yfcm
 from . import yfc_utils as yfcu
@@ -606,10 +609,9 @@ def GetExchangeScheduleIntervals(exchange, interval, start, end, discardTimes=No
             return None
         # Transfer IntervalIndex to DataFrame so can modify
         intervals_df = pd.DataFrame(data={"interval_open": ti.left.tz_convert(tz), "interval_close": ti.right.tz_convert(tz)})
-        print("DEBUG: dt_now =", dt_now)  # debugging
+        yfc_logger.debug(f"Inside GetExchangeScheduleIntervals(), dt_now = {dt_now}, and last pre-prune interval = {intervals_df['interval_open'].iloc[-1]}")
         if exclude_future:
-            #intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now]
-            intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now+itd]  # debugging: test an idea
+            intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now]
         if "auction" in cal.schedule.columns:
             sched = GetExchangeSchedule(exchange, start_d, end_d)
             sched.index = sched.index.date
@@ -739,6 +741,7 @@ def GetExchangeScheduleIntervals(exchange, interval, start, end, discardTimes=No
 
     if debug:
         print(f"GetExchangeScheduleIntervals() returning {type(intervals)} {intervals.left[0]} -> {intervals.right[-1]}")
+    yfc_logger.debug(f"GetExchangeScheduleIntervals({istr}) returning interval starts {intervals.left[0]} -> {intervals.left[-1]}")
     return intervals
 
 
@@ -1082,6 +1085,7 @@ def GetTimestampCurrentInterval_batch(exchange, ts, interval, discardTimes=None,
         t0 = ts[0]
         tl = ts[len(ts)-1]
         tis = GetExchangeScheduleIntervals(exchange, interval, t0-itd, tl+itd, ignore_breaks=ignore_breaks)
+        yfc_logger.debug(f"GetExchangeScheduleIntervals() returned {tis[0]} -> {tis[-1]}")
         tz_tis = tis[0].left.tzinfo
         if ts[0].tzinfo != tz_tis:
             ts = [t.astimezone(tz_tis) for t in ts]
