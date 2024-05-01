@@ -607,7 +607,8 @@ def GetExchangeScheduleIntervals(exchange, interval, start, end, discardTimes=No
         # Transfer IntervalIndex to DataFrame so can modify
         intervals_df = pd.DataFrame(data={"interval_open": ti.left.tz_convert(tz), "interval_close": ti.right.tz_convert(tz)})
         if exclude_future:
-            intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now]
+            #intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now]
+            intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now+itd]  # debugging: test an idea
         if "auction" in cal.schedule.columns:
             sched = GetExchangeSchedule(exchange, start_d, end_d)
             sched.index = sched.index.date
