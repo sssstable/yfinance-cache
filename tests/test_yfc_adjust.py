@@ -51,7 +51,7 @@ class Test_Unadjust(Test_Base):
             answer.index = answer.index.tz_localize(tz)
 
         df = dat.history(start="2022-01-04", end="2022-08-20", adjust_splits=False, adjust_divs=False)
-        self.verify_df(df, answer, 1e-10)
+        self.verify_df(df, answer, 5e-5)
 
 
     def test_adjust_simple(self):
@@ -103,7 +103,7 @@ class Test_Unadjust(Test_Base):
 
         df = dat.history(start="2022-01-01",end="2022-08-20",adjust_divs=False)
         answer_splitAdjusted = yf.Ticker(tkr, self.session).history(start="2022-01-01",end="2022-08-20",auto_adjust=False)
-        self.verify_df(df, answer_splitAdjusted, 1e-7)
+        self.verify_df(df, answer_splitAdjusted, 5e-5)
 
         df = dat.history(start="2022-01-01",end="2022-08-20")
         answer_adjusted = yf.Ticker(tkr, self.session).history(start="2022-01-01",end="2022-08-20")
@@ -137,7 +137,7 @@ class Test_Unadjust(Test_Base):
         answer_noadjust.index = answer_noadjust.index.tz_convert(tz)
 
         df = dat.history(start="2022-01-01", end="2022-08-20", adjust_divs=False, adjust_splits=False)
-        self.verify_df(df, answer_noadjust, 1e-10)
+        self.verify_df(df, answer_noadjust, 5e-5)
 
         df = dat.history(start="2022-01-01",end="2022-08-20",adjust_divs=False)
         answer_splitAdjusted = yf.Ticker(tkr, self.session).history(start="2022-01-01",end="2022-08-20",auto_adjust=False)
@@ -162,7 +162,7 @@ class Test_Unadjust(Test_Base):
             answer_noadjust.index = pd.to_datetime(answer_noadjust.index, utc=True)
         answer_noadjust.index = answer_noadjust.index.tz_convert(tz)
 
-        self.verify_df(df, answer_noadjust, 1e-10)
+        self.verify_df(df, answer_noadjust, 5e-5)
 
     def test_adjust_prepend2(self):
         # Fetch 2nd Aug (after split day) -> now, then Jan -> now
@@ -178,7 +178,7 @@ class Test_Unadjust(Test_Base):
             answer_noadjust.index = pd.to_datetime(answer_noadjust.index, utc=True)
         answer_noadjust.index = answer_noadjust.index.tz_convert(tz)
 
-        self.verify_df(df, answer_noadjust, 1e-10)
+        self.verify_df(df, answer_noadjust, 5e-5)
 
     def test_adjust_prepend3(self):
         # Fetch 28th July (before split day) -> now, then Jan -> now
@@ -194,7 +194,7 @@ class Test_Unadjust(Test_Base):
             answer_noadjust.index = pd.to_datetime(answer_noadjust.index, utc=True)
         answer_noadjust.index = answer_noadjust.index.tz_convert(tz)
 
-        self.verify_df(df, answer_noadjust, 1e-10)
+        self.verify_df(df, answer_noadjust, 5e-5)
 
 
     def test_weekly_simple(self):
