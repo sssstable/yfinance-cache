@@ -140,6 +140,9 @@ exchangeToXcalExchange["SES"] = "XSES"  # Singapore
 exchangeToXcalExchange["HKG"] = "XHKG"  # Hong Kong
 exchangeToXcalExchange["ASX"] = "ASX"   # Australia
 exchangeToXcalExchange["NZE"] = "XNZE"  # New Zealand
+exchangeToXcalExchange["SAU"] = "XSAU"  # Saudi Arabia
+# FX
+exchangeToXcalExchange["CCY"] = "IEPA"  # ICE Data Services
 
 exchangesWithBreaks = {"HKG"}
 
@@ -193,6 +196,10 @@ exchangeToYfLag["SES"] = timedelta(minutes=20)
 exchangeToYfLag["HKG"] = timedelta(minutes=15)
 exchangeToYfLag["ASX"] = timedelta(minutes=20)
 exchangeToYfLag["NZE"] = timedelta(minutes=20)
+exchangeToYfLag["SAU"] = timedelta(minutes=15)
+# FX:
+exchangeToYfLag["CCY"] = timedelta(0)
+exchangeToYfLag["CCC"] = timedelta(0)
 
 # After-market auctions:
 exchangesWithAuction = set()

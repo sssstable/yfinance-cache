@@ -77,6 +77,35 @@ def GetExchangeDataDelay(exchange):
     return d
 
 
+def Simple247xcal(opens, closes):
+    yfcu.TypeCheckDatetimeIndex(opens, 'opens')
+    yfcu.TypeCheckDatetimeIndex(closes, 'closes')
+
+    # Use any xcal calendar as base
+    cal = xcal.get_calendar('NYSE')
+
+    cal._opens = opens
+    cal._closes = closes
+
+    cal.schedule = pd.DataFrame(data={"open":opens, "close":closes}, index=opens)
+    cal.schedule.index = cal.schedule.index.tz_localize(None)
+    cal.schedule['break_start'] = pd.NaT
+    cal.schedule['break_end'] = pd.NaT
+
+    cal.opens_nanos = np.array([x.value for x in opens])
+    cal.closes_nanos = np.array([x.value for x in closes])
+
+    cal._late_opens = []
+    cal._early_closes = []
+
+    cal._break_starts = None
+    cal._break_ends = None
+    cal.break_starts_nanos = cal.schedule['break_start'].values.astype(np.int64)
+    cal.break_ends_nanos = cal.schedule['break_end'].values.astype(np.int64)
+
+    return cal
+
+
 def JoinTwoXcals(cal1, cal2):
     # TODO: Check no overlap, and also they are close together implying no business days between
 
@@ -105,8 +134,6 @@ def JoinTwoXcals(cal1, cal2):
     cal12.break_starts_nanos = _safeAppend(cal1.break_starts_nanos, cal2.break_starts_nanos)
     cal12.break_ends_nanos = _safeAppend(cal1.break_ends_nanos, cal2.break_ends_nanos)
     cal12.closes_nanos = _safeAppend(cal1.closes_nanos, cal2.closes_nanos)
-    #
-    cal12.sessions_nanos = _safeAppend(cal1.sessions_nanos, cal2.sessions_nanos)
     #
     cal12._late_opens = _safeAppend(cal1._late_opens, cal2._late_opens)
     cal12._early_closes = _safeAppend(cal1._early_closes, cal2._early_closes)
@@ -141,7 +168,13 @@ def GetCalendarViaCache(exchange, start, end=None):
         end = date.today().year
 
     cache_key = "exchange-"+exchange
-    cal_name = yfcd.exchangeToXcalExchange[exchange]
+    if exchange == 'CCC':
+        # Binance, 24/7
+        cal_name = exchange
+    else:
+        if exchange not in yfcd.exchangeToXcalExchange:
+            raise Exception("Need to add mapping of exchange {} to xcal".format(exchange))
+        cal_name = yfcd.exchangeToXcalExchange[exchange]
 
     cal = None
 
@@ -195,7 +228,12 @@ def GetCalendarViaCache(exchange, start, end=None):
         if pre_range is not None:
             start = date(pre_range[0], 1, 1)
             end = date(pre_range[1], 12, 31)
-            pre_cal = xcal.get_calendar(cal_name, start=start, end=end)
+            if exchange == 'CCC':
+                opens = pd.date_range(start=start, end=end, freq='1d').tz_localize(ZoneInfo(GetExchangeTzName(exchange)))
+                ends = opens + pd.Timedelta('1d')
+                pre_cal = Simple247xcal(opens, ends)
+            else:
+                pre_cal = xcal.get_calendar(cal_name, start=start, end=end)
             pre_cal = _customModSchedule(pre_cal)
             if cal is None:
                 cal = pre_cal
@@ -204,7 +242,12 @@ def GetCalendarViaCache(exchange, start, end=None):
         if post_range is not None:
             start = date(post_range[0], 1, 1)
             end = date(post_range[1], 12, 31)
-            post_cal = xcal.get_calendar(cal_name, start=start, end=end)
+            if exchange == 'CCC':
+                opens = pd.date_range(start=start, end=end, freq='1d').tz_localize(ZoneInfo(GetExchangeTzName(exchange)))
+                ends = opens + pd.Timedelta('1d')
+                post_cal = Simple247xcal(opens, ends)
+            else:
+                post_cal = xcal.get_calendar(cal_name, start=start, end=end)
             post_cal = _customModSchedule(post_cal)
             if cal is None:
                 cal = post_cal
@@ -223,8 +266,6 @@ def ExchangeOpenOnDay(exchange, d):
     yfcu.TypeCheckStr(exchange, "exchange")
     yfcu.TypeCheckDateStrict(d, "d")
 
-    if exchange not in yfcd.exchangeToXcalExchange:
-        raise Exception("Need to add mapping of exchange {} to xcal".format(exchange))
     cal = GetCalendarViaCache(exchange, d)
 
     return d.isoformat() in cal.schedule.index
@@ -243,9 +284,6 @@ def GetExchangeSchedule(exchange, start_d, end_d):
 
     if debug:
         print("GetExchangeSchedule(exchange={}, start_d={}, end_d={}".format(exchange, start_d, end_d))
-
-    if exchange not in yfcd.exchangeToXcalExchange:
-        raise Exception("Need to add mapping of exchange {} to xcal".format(exchange))
 
     end_d_sub1 = end_d - timedelta(days=1)
 
@@ -588,8 +626,6 @@ def GetExchangeScheduleIntervals(exchange, interval, start, end, discardTimes=No
     if debug:
         print("- week_starts_sunday =", week_starts_sunday)
 
-    if exchange not in yfcd.exchangeToXcalExchange:
-        raise Exception("Need to add mapping of exchange {} to xcal".format(exchange))
     cal = GetCalendarViaCache(exchange, start_d, end_d)
 
     # When calculating intervals use dates not datetimes. Cache the result, and then
