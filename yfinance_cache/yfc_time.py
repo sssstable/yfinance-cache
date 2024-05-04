@@ -513,7 +513,7 @@ def MapPeriodToDates(exchange, period, interval):
 
     # Map period to start->end range so logic can intelligently fetch missing data
     td_1d = timedelta(days=1)
-    dt_now = datetime.utcnow().replace(tzinfo=ZoneInfo("UTC"))
+    dt_now = pd.Timestamp.utcnow().replace(tzinfo=ZoneInfo("UTC"))
     d_now = dt_now.astimezone(tz_exchange).date()
     sched = GetExchangeSchedule(exchange, d_now-(7*td_1d), d_now+td_1d)
     yf_lag = yfcd.exchangeToYfLag[exchange]
@@ -2002,13 +2002,3 @@ def DtSubtractPeriod(dt, period):
         # 'period' should be type Timedelta
         return dt - period
 
-
-def GetSystemTz():
-    dt = datetime.utcnow().astimezone()
-
-    tzn = dt.tzname()
-    if tzn == "BST":
-        # Confirmed that ZoneInfo figures out DST
-        tzn = "GB"
-    tz = ZoneInfo(tzn)
-    return tz

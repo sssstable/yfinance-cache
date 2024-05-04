@@ -197,10 +197,20 @@ def ProcessUserDt(dt, tz_name):
         raise Exception("Argument 'dt' must be str, date or datetime")
     dt = dt.replace(tzinfo=tz) if dt.tzinfo is None else dt.astimezone(tz)
 
-    if d is None and dt.time() == datetime.time(0):
+    if d is None and dt.time() == time(0):
         d = dt.date()
 
     return dt, d
+
+
+def RDtoDO(rd):
+    # Convert a relativedelta to Pandas.DateOffset
+    return pd.DateOffset(years=rd.years,
+                         months=rd.months,
+                         days=rd.days,
+                         hours=rd.hours,
+                         minutes=rd.minutes,
+                         seconds=rd.seconds)
 
 
 def GetCSF0(df):

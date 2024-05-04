@@ -432,7 +432,10 @@ class DateIntervalIndex:
         return np.equal(self.array, other.array)
 
     def equals(self, other):
-        return (self == other).all()
+        e = self == other
+        if isinstance(e, np.ndarray):
+            e = e.all()
+        return e
 
     def __str__(self):
         s = "DateIntervalIndex([ "
