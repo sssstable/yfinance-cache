@@ -3612,8 +3612,12 @@ class PriceHistory:
             c = price_cols[i]
             df2.loc[f_zero_or_nan[:, i], c] = tag
         # If volume=0 or NaN for bad prices, then tag volume for repair
-        df2.loc[f_zero_or_nan.any(axis=1) & (df2["Volume"] == 0), "Volume"] = tag
-        df2.loc[f_zero_or_nan.any(axis=1) & (df2["Volume"].isna()), "Volume"] = tag
+        if self.ticker.endswith("=X"):
+            # FX, volume always 0
+            pass
+        else:
+            df2.loc[f_zero_or_nan.any(axis=1) & (df2["Volume"] == 0), "Volume"] = tag
+            df2.loc[f_zero_or_nan.any(axis=1) & (df2["Volume"].isna()), "Volume"] = tag
 
         # print(df2[f_zero_or_nan.any(axis=1)])
         n_before = (df2[data_cols].to_numpy() == tag).sum()
