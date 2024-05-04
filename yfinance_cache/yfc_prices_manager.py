@@ -915,7 +915,7 @@ class PriceHistory:
                 ha = self._repairZeroPrices(ha, silent=True)
                 ha["C-Check?"] = True
                 if not hb.empty:
-                    self.h = pd.concat([ha, hb], sort=True)
+                    self.h = pd.concat([ha, hb[ha.columns]])
                     self.h.index = pd.to_datetime(self.h.index, utc=True).tz_convert(tz_exchange)
                 else:
                     self.h = ha
@@ -1057,7 +1057,6 @@ class PriceHistory:
         h2_pre = None ; h2_post = None
         if range_pre is not None:
             r = range_pre
-            # check_for_listing = False
             try:
                 h2_pre = self._fetchYfHistory(r[0], r[1], prepost, debug)
             except yfcd.NoPriceDataInRangeException:
@@ -1065,28 +1064,13 @@ class PriceHistory:
                     # If only trying to fetch 1 day of 1d data, then print warning instead of exception.
                     # Could add additional condition of dividend previous day (seems to mess up table).
                     if not quiet:
-                        # print("WARNING: No {}-price data fetched for ticker {} between dates {} -> {}".format(yfcd.intervalToString[self.interval], self.ticker, r[0], r[1]))
                         print(f"WARNING: {self.ticker}: No {yfcd.intervalToString[self.interval]}-price data fetched for {r[0]} -> {r[1]}")
                     h2_pre = None
                 elif (range_post is None) and (r[1]-r[0] < td_1d*7) and (r[1]-r[0] > td_1d*3):
                     # Small date range, potentially trying to fetch before listing data
-                    # check_for_listing = True
                     h2_pre = None
                 else:
                     raise
-            # if check_for_listing:
-            #     df = None
-            #     try:
-            #         df = self._fetchYfHistory(pstr, r[0], r[1]+td_1d*7, prepost, debug)
-            #     except Exception:
-            #         # Discard
-            #         pass
-            #     if df is not None:
-            #         # Then the exception above occurred because trying to fetch before listing dated!
-            #         yfcm.StoreCacheDatum(self.ticker, "listing_date", self.h.index[0].date())
-            #     else:
-            #         # Then the exception above was genuine and needs to be propagated
-            #         raise yfcd.NoPriceDataInRangeException(self.ticker, self.istr, r[0], r[1])
 
         if range_post is not None:
             r = range_post
@@ -1097,7 +1081,6 @@ class PriceHistory:
                 # Could add additional condition of dividend previous day (seems to mess up table).
                 if self.interval == yfcd.Interval.Days1 and r[1] - r[0] == td_1d:
                     if not quiet:
-                        # print("WARNING: No {}-price data fetched for ticker {} between dates {} -> {}".format(yfcd.intervalToString[self.interval], self.ticker, r[0], r[1]))
                         print(f"WARNING: {self.ticker}: No {yfcd.intervalToString[self.interval]}-price data fetched for {r[0]} -> {r[1]}")
                     h2_post = None
                 else:
@@ -1136,7 +1119,7 @@ class PriceHistory:
 
             if "Adj Close" in h2_post.columns:
                 raise Exception("Adj Close in h2_post")
-            self.h = pd.concat([self.h, h2_post], sort=True)
+            self.h = pd.concat([self.h, h2_post[self.h.columns]])
             self.h.index = pd.to_datetime(self.h.index, utc=True).tz_convert(tz_exchange)
 
         if h2_pre is not None:
@@ -1154,7 +1137,7 @@ class PriceHistory:
             # h2_pre = h2_pre.drop(["Dividends", "Stock Splits"], axis=1)
             if "Adj Close" in h2_pre.columns:
                 raise Exception("Adj Close in h2_pre")
-            self.h = pd.concat([self.h, h2_pre], sort=True)
+            self.h = pd.concat([self.h, h2_pre[self.h.columns]])
             self.h.index = pd.to_datetime(self.h.index, utc=True).tz_convert(tz_exchange)
 
         self.h = self.h.sort_index()
@@ -1265,7 +1248,7 @@ class PriceHistory:
                 print("self.h.shape:", self.h.shape)
                 print("h2.shape:", h2.shape)
                 raise
-            self.h = pd.concat([self.h, h2], sort=True)
+            self.h = pd.concat([self.h, h2[self.h.columns]])
             self.h.index = pd.to_datetime(self.h.index, utc=True).tz_convert(tz_exchange)
 
             f_dups = self.h.index.duplicated()
@@ -1833,8 +1816,6 @@ class PriceHistory:
                     # Update: need start further back for low-volume tickers
                     fetch_ranges[0]["fetch start"] = s["open"].iloc[0]
                     fetch_ranges[-1]["fetch end"] = s["open"].iloc[-1] + timedelta(hours=2)
-                    # print("- fetch_ranges:")
-                    # pprint(fetch_ranges)
                     maxLookback = yfcd.yfMaxFetchLookback[self.interval] - timedelta(seconds=10)
                     if maxLookback is not None:
                         maxLookback_dt = (dt_now - maxLookback).tz_convert(tz_exchange)
@@ -1864,7 +1845,7 @@ class PriceHistory:
                 if df is None:
                     df = dfr
                 else:
-                    df = pd.concat([df, dfr], sort=True)
+                    df = pd.concat([df, dfr[df.columns]])
                 if df.index.duplicated().any():
                     raise Exception("df contains duplicated dates")
 
@@ -2001,12 +1982,12 @@ class PriceHistory:
                 df_missing.index = pd.to_datetime(df_missing.index)
                 if self.interday:
                     df_missing.index = df_missing.index.tz_localize(tz_exchange)
-                for c in ["Volume", "Dividends", "Stock Splits"]:
+                for c in ["Volume", "Dividends", "Stock Splits", "Capital Gains"]:
                     df_missing[c] = 0
                 if df is None:
                     df = df_missing
                 else:
-                    df = pd.concat([df, df_missing], sort=True)
+                    df = pd.concat([df, df_missing[df.columns]])
                     df.index = pd.to_datetime(df.index, utc=True).tz_convert(tz_exchange)
                     df = df.sort_index()
 
