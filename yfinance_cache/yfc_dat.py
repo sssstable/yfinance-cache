@@ -50,9 +50,9 @@ periodToTimedelta[Period.Years5] = relativedelta(years=5)
 periodToTimedelta[Period.Years10] = relativedelta(years=10)
 
 
+# Months3 = 0
+# Months1 = 2
 class Interval(Enum):
-    Months3 = 0
-    Months1 = 2
     Week = 5
     Days1 = 10
     Hours1 = 20
@@ -74,8 +74,8 @@ intervalToString[Interval.Mins90] = "90m"
 intervalToString[Interval.Hours1] = "1h"
 intervalToString[Interval.Days1] = "1d"
 intervalToString[Interval.Week] = "1wk"
-intervalToString[Interval.Months1] = "1mo"
-intervalToString[Interval.Months3] = "3mo"
+# intervalToString[Interval.Months1] = "1mo"
+# intervalToString[Interval.Months3] = "3mo"
 intervalStrToEnum = {v: k for k, v in intervalToString.items()}
 intervalToTimedelta = {}
 intervalToTimedelta[Interval.Mins1] = timedelta(minutes=1)
@@ -88,8 +88,8 @@ intervalToTimedelta[Interval.Mins90] = timedelta(minutes=90)
 intervalToTimedelta[Interval.Hours1] = timedelta(hours=1)
 intervalToTimedelta[Interval.Days1] = timedelta(days=1)
 intervalToTimedelta[Interval.Week] = timedelta(days=7)
-intervalToTimedelta[Interval.Months1] = relativedelta(months=1)
-intervalToTimedelta[Interval.Months3] = relativedelta(months=3)
+# intervalToTimedelta[Interval.Months1] = relativedelta(months=1)
+# intervalToTimedelta[Interval.Months3] = relativedelta(months=3)
 
 
 exchangeToXcalExchange = {}
@@ -226,8 +226,8 @@ yfMaxFetchRange[Interval.Mins60] = timedelta(days=730)
 yfMaxFetchRange[Interval.Hours1] = timedelta(days=730)
 yfMaxFetchRange[Interval.Days1] = None
 yfMaxFetchRange[Interval.Week] = None
-yfMaxFetchRange[Interval.Months1] = None
-yfMaxFetchRange[Interval.Months3] = None
+# yfMaxFetchRange[Interval.Months1] = None
+# yfMaxFetchRange[Interval.Months3] = None
 
 yfMaxFetchLookback = {}
 yfMaxFetchLookback[Interval.Mins1] = timedelta(days=30)
@@ -240,14 +240,14 @@ yfMaxFetchLookback[Interval.Mins60] = timedelta(days=730)
 yfMaxFetchLookback[Interval.Hours1] = timedelta(days=730)
 yfMaxFetchLookback[Interval.Days1] = None
 yfMaxFetchLookback[Interval.Week] = None
-yfMaxFetchLookback[Interval.Months1] = None
-yfMaxFetchLookback[Interval.Months3] = None
+# yfMaxFetchLookback[Interval.Months1] = None
+# yfMaxFetchLookback[Interval.Months3] = None
 
 listing_date_check_tols = {}
 listing_date_check_tols[Interval.Days1] = timedelta(days=7)
 listing_date_check_tols[Interval.Week] = timedelta(days=14)
-listing_date_check_tols[Interval.Months1] = timedelta(days=35)
-listing_date_check_tols[Interval.Months3] = timedelta(days=35*3)
+# listing_date_check_tols[Interval.Months1] = timedelta(days=35)
+# listing_date_check_tols[Interval.Months3] = timedelta(days=35*3)
 
 
 class Financials(Enum):

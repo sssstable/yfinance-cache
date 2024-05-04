@@ -359,7 +359,7 @@ class PriceHistory:
 
         self.itd = yfcd.intervalToTimedelta[self.interval]
         self.istr = yfcd.intervalToString[self.interval]
-        self.interday = self.interval in [yfcd.Interval.Days1, yfcd.Interval.Week, yfcd.Interval.Months1, yfcd.Interval.Months3]
+        self.interday = self.interval in [yfcd.Interval.Days1, yfcd.Interval.Week]#, yfcd.Interval.Months1, yfcd.Interval.Months3]
         self.intraday = not self.interday
         self.multiday = self.interday and self.interval != yfcd.Interval.Days1
 
@@ -465,10 +465,10 @@ class PriceHistory:
                 max_age = timedelta(hours=4)
             elif self.interval == yfcd.Interval.Week:
                 max_age = timedelta(hours=60)
-            elif self.interval == yfcd.Interval.Months1:
-                max_age = timedelta(days=15)
-            elif self.interval == yfcd.Interval.Months3:
-                max_age = timedelta(days=45)
+            # elif self.interval == yfcd.Interval.Months1:
+            #     max_age = timedelta(days=15)
+            # elif self.interval == yfcd.Interval.Months3:
+            #     max_age = timedelta(days=45)
             else:
                 max_age = 0.5*yfcd.intervalToTimedelta[self.interval]
 
@@ -568,13 +568,12 @@ class PriceHistory:
             if not self.interday:
                 end = end_dt
 
-        if period is None:
-            if self.interday:
-                if isinstance(start, datetime) or isinstance(end, datetime):
-                    raise TypeError(f"'start' and 'end' must be date type not {type(start)}, {type(end)}")
-            else:
-                if (not isinstance(start, datetime)) and (not isinstance(end, datetime)):
-                    raise TypeError(f"'start' and 'end' must be datetime type not {type(start)}, {type(end)}")
+        if self.interday:
+            if isinstance(start, datetime) or isinstance(end, datetime):
+                raise TypeError(f"'start' and 'end' must be date type not {type(start)}, {type(end)}")
+        else:
+            if (not isinstance(start, datetime)) and (not isinstance(end, datetime)):
+                raise TypeError(f"'start' and 'end' must be datetime type not {type(start)}, {type(end)}")
 
         listing_date = yfcm.ReadCacheDatum(self.ticker, "listing_date")
         if listing_date is not None and start is not None:
@@ -672,18 +671,13 @@ class PriceHistory:
         if self.h is None:
             # Simple, just fetch the requested data
 
-            if period is not None:
-                h = self._fetchYfHistory(pstr, None, None, prepost, debug_yf)
-                if h is None:
-                    raise Exception(f"{self.ticker}: Failed to fetch period={period}")
+            if self.contiguous:
+                # Ensure daily always up-to-now
+                h = self._fetchYfHistory(start, tomorrow, prepost, debug_yf)
             else:
-                if self.contiguous:
-                    # Ensure daily always up-to-now
-                    h = self._fetchYfHistory(pstr, start, tomorrow, prepost, debug_yf)
-                else:
-                    h = self._fetchYfHistory(pstr, start, end, prepost, debug_yf)
-                if h is None:
-                    raise Exception(f"{self.ticker}: Failed to fetch date range {start}->{end}")
+                h = self._fetchYfHistory(start, end, prepost, debug_yf)
+            if h is None:
+                raise Exception(f"{self.ticker}: Failed to fetch date range {start}->{end}")
 
             # Adjust
             h = self._reverseYahooAdjust(h)
@@ -892,9 +886,9 @@ class PriceHistory:
                     # quiet = not debug_yfc
                 # if self.interval == yfcd.Interval.Days1:
                 if self.contiguous:
-                    self._fetchAndAddRanges_contiguous(pstr, ranges_to_fetch, prepost, debug_yf, quiet=quiet)
+                    self._fetchAndAddRanges_contiguous(ranges_to_fetch, prepost, debug_yf, quiet=quiet)
                 else:
-                    self._fetchAndAddRanges_sparse(pstr, ranges_to_fetch, prepost, debug_yf, quiet=quiet)
+                    self._fetchAndAddRanges_sparse(ranges_to_fetch, prepost, debug_yf, quiet=quiet)
 
         # repair after all fetches complete
         if self.repair and repair:
@@ -999,9 +993,7 @@ class PriceHistory:
 
         return h_copy
 
-    def _fetchAndAddRanges_contiguous(self, pstr, ranges_to_fetch, prepost, debug, quiet=False):
-        if pstr is not None:
-            yfcu.TypeCheckStr(pstr, "pstr")
+    def _fetchAndAddRanges_contiguous(self, ranges_to_fetch, prepost, debug, quiet=False):
         yfcu.TypeCheckIterable(ranges_to_fetch, "ranges_to_fetch")
         yfcu.TypeCheckBool(prepost, "prepost")
         yfcu.TypeCheckBool(debug, "debug")
@@ -1067,7 +1059,7 @@ class PriceHistory:
             r = range_pre
             # check_for_listing = False
             try:
-                h2_pre = self._fetchYfHistory(pstr, r[0], r[1], prepost, debug)
+                h2_pre = self._fetchYfHistory(r[0], r[1], prepost, debug)
             except yfcd.NoPriceDataInRangeException:
                 if self.interval == yfcd.Interval.Days1 and r[1] - r[0] == td_1d:
                     # If only trying to fetch 1 day of 1d data, then print warning instead of exception.
@@ -1099,7 +1091,7 @@ class PriceHistory:
         if range_post is not None:
             r = range_post
             try:
-                h2_post = self._fetchYfHistory(pstr, r[0], r[1], prepost, debug)
+                h2_post = self._fetchYfHistory(r[0], r[1], prepost, debug)
             except yfcd.NoPriceDataInRangeException:
                 # If only trying to fetch 1 day of 1d data, then print warning instead of exception.
                 # Could add additional condition of dividend previous day (seems to mess up table).
@@ -1176,9 +1168,7 @@ class PriceHistory:
             print(self.h)
             print(log_msg)
 
-    def _fetchAndAddRanges_sparse(self, pstr, ranges_to_fetch, prepost, debug, quiet=False):
-        if pstr is not None:
-            yfcu.TypeCheckStr(pstr, "pstr")
+    def _fetchAndAddRanges_sparse(self, ranges_to_fetch, prepost, debug, quiet=False):
         yfcu.TypeCheckIterable(ranges_to_fetch, "ranges_to_fetch")
         yfcu.TypeCheckBool(prepost, "prepost")
         yfcu.TypeCheckBool(debug, "debug")
@@ -1230,7 +1220,7 @@ class PriceHistory:
             if debug_yfc:
                 print("- fetching {} -> {}".format(fetch_start, fetch_end))
             try:
-                h2 = self._fetchYfHistory(pstr, fetch_start, fetch_end, prepost, debug)
+                h2 = self._fetchYfHistory(fetch_start, fetch_end, prepost, debug)
             except yfcd.NoPriceDataInRangeException:
                 # If only trying to fetch 1 day of 1d data, then print warning instead of exception.
                 # Could add additional condition of dividend previous day (seems to mess up table).
@@ -1671,11 +1661,9 @@ class PriceHistory:
         yfcl.TraceExit(f"PM::_verifyCachedPrices-{self.istr}() returning False")
         return False
 
-    def _fetchYfHistory(self, pstr, start, end, prepost, debug, verify_intervals=True, disable_yfc_metadata=False):
-        if start is None and end is None and pstr is None:
-            raise ValueError("Must provide value for one of: 'start', 'end', 'pstr'")
-        if pstr is not None:
-            yfcu.TypeCheckStr(pstr, "pstr")
+    def _fetchYfHistory(self, start, end, prepost, debug, verify_intervals=True, disable_yfc_metadata=False):
+        if start is None and end is None:
+            raise ValueError("Must provide value for one of: 'start', 'end'")
         if start is not None:
             yfcu.TypeCheckIntervalDt(start, self.interval, "start")
         if end is not None:
@@ -1686,209 +1674,199 @@ class PriceHistory:
         debug_yfc = False
         # debug_yfc = True
 
-        log_msg = f"PM::_fetchYfHistory-{self.istr}(pstr={pstr} , {start}->{end}, prepost={prepost})"
+        log_msg = f"PM::_fetchYfHistory-{self.istr}({start}->{end}, prepost={prepost})"
         if yfcl.IsTracingEnabled():
             yfcl.TraceEnter(log_msg)
         elif debug_yfc:
             print("")
             print(log_msg)
 
-        if pstr is not None:
-            if (start is not None) and (end is not None):
-                # start/end take precedence over pstr
-                pstr = None
-
         tz_exchange = self.tz
         td_1d = timedelta(days=1)
         dt_now = pd.Timestamp.utcnow().tz_convert(ZoneInfo("UTC"))
 
-        if pstr is not None:
-            df = self._fetchYfHistory_period(pstr, prepost, debug)
-            first_fetch_failed = df is None or df.empty
-
-        else:
-            if self.intraday:
-                maxLookback = yfcd.yfMaxFetchLookback[self.interval] - timedelta(seconds=10)
-                if maxLookback is not None:
-                    start = max(start, dt_now - maxLookback)
-                    if start >= end:
-                        return None
-
-            fetch_start = start
-            fetch_end = end
-
-            if end is not None:
-                # If 'fetch_end' in future then cap to exchange midnight
-                dtnow_exchange = dt_now.tz_convert(tz_exchange)
-                if isinstance(end, datetime):
-                    end_dt = end
-                    # end_d = end.astimezone(tz_exchange).date()
-                    end_d = None
-                else:
-                    end_d = end
-                    end_dt = datetime.combine(end, time(0), tz_exchange)
-                if end_dt > dt_now:
-                    exchange_midnight_dt = datetime.combine(dtnow_exchange.date()+td_1d, time(0), tz_exchange)
-                    if isinstance(end, datetime):
-                        fetch_end = exchange_midnight_dt
-                    else:
-                        fetch_end = exchange_midnight_dt.date()
-            if start is not None:
-                if isinstance(start, datetime):
-                    start_dt = start
-                    # start_d = start.astimezone(tz_exchange).date()
-                    start_d = None
-                else:
-                    start_d = start
-                    start_dt = datetime.combine(start, time(0), tz_exchange)
-
-                if (fetch_start is not None) and (fetch_end <= fetch_start):
+        if self.intraday:
+            maxLookback = yfcd.yfMaxFetchLookback[self.interval] - timedelta(seconds=10)
+            if maxLookback is not None:
+                start = max(start, dt_now - maxLookback)
+                if start >= end:
                     return None
 
-            if fetch_start is not None:
-                if not isinstance(fetch_start, (datetime, pd.Timestamp)):
-                    fetch_start_dt = datetime.combine(fetch_start, time(0), self.tz)
-                else:
-                    fetch_start_dt = fetch_start
-            if fetch_end is not None:
-                if not isinstance(fetch_end, (datetime, pd.Timestamp)):
-                    fetch_end_dt = datetime.combine(fetch_end, time(0), tz_exchange)
-                else:
-                    fetch_end_dt = fetch_end
+        fetch_start = start
+        fetch_end = end
 
-            if fetch_start is not None:
-                if self.interval == yfcd.Interval.Week:
-                    # Ensure aligned to week start:
-                    fetch_start -= timedelta(days=fetch_start.weekday())
-
-            td_1d = timedelta(days=1)
-            td_14d = timedelta(days=14)
-            if self.interval == yfcd.Interval.Days1:
-                # Add padding days to ensure Yahoo returns correct Volume
-                s = yfct.GetExchangeSchedule(self.exchange, fetch_start - td_14d, fetch_end + td_14d)
-                fetch_start_pad = s.iloc[s.index.get_indexer([str(fetch_start)], method="ffill")[0]-1].name.date()
-
-                first_fetch_failed = False
-                try:
-                    df = self._fetchYfHistory_dateRange(fetch_start_pad, fetch_end, prepost, debug)
-                    df = df.loc[str(fetch_start):].copy()
-                except yfcd.NoPriceDataInRangeException as e:
-                    first_fetch_failed = True
-                    ex = e
-
-                if first_fetch_failed and fetch_end is not None:
-                    # Try with wider date range, maybe entire range is just before listing date
-                    second_fetch_failed = False
-                    df_wider = None
-                    listing_date_check_tol = yfcd.listing_date_check_tols[self.interval]
-                    fetch_start -= 2*listing_date_check_tol
-                    fetch_end += 2*listing_date_check_tol
-                    if debug_yfc:
-                        msg = "- first fetch failed, trying again with wider range: {} -> {}".format(fetch_start, fetch_end)
-                        yfcl.TracePrint(msg) if yfcl.IsTracingEnabled() else print(msg)
-                    try:
-                        df_wider = self._fetchYfHistory_dateRange(fetch_start, fetch_end, prepost, debug)
-                        if debug_yfc:
-                            msg = "- second fetch returned:"
-                            yfcl.TracePrint(msg) if yfcl.IsTracingEnabled() else print(msg)
-                            print(df_wider)
-                    except Exception as e:
-                        if "Data doesn't exist for startDate" in str(e):
-                            second_fetch_failed = True
-                        elif "No data found for this date range" in str(e):
-                            second_fetch_failed = True
-                        else:
-                            raise e
-
-                    if df_wider is not None:
-                        if debug_yfc:
-                            print("- detected listing date =", df_wider.index[0].date())
-                        yfcm.StoreCacheDatum(self.ticker, "listing_date", df_wider.index[0].date())
-                        df = df_wider
-                        if fetch_start is not None:
-                            df = df.loc[fetch_start_dt:]
-                        if fetch_end is not None:
-                            df = df.loc[:fetch_end_dt-timedelta(milliseconds=1)]
-
-                if first_fetch_failed:
-                    if second_fetch_failed:
-                        # Hopefully code never comes here
-                        raise ex
-                    else:
-                        # Requested date range was just before stock listing date,
-                        # but wider range crosses over so can continue
-                        pass
-
-            elif self.interday:
-                # Add padding days to ensure Yahoo returns correct Volume
-                s = yfct.GetExchangeSchedule(self.exchange, fetch_start - 2*self.itd, fetch_end + 2*self.itd)
-                fetch_start_pad = s.iloc[s.index.get_indexer([str(fetch_start)], method="ffill")[0]-1].name.date()
-                fetch_end_pad   = s.iloc[s.index.get_indexer([str(fetch_end)], method="bfill")[0]+1].name.date()
-
-                df = self._fetchYfHistory_dateRange(fetch_start_pad, fetch_end_pad, prepost, debug)
-                df = df.loc[str(fetch_start) : str(fetch_end-td_1d)].copy()
-
+        if end is not None:
+            # If 'fetch_end' in future then cap to exchange midnight
+            dtnow_exchange = dt_now.tz_convert(tz_exchange)
+            if isinstance(end, datetime):
+                end_dt = end
+                # end_d = end.astimezone(tz_exchange).date()
+                end_d = None
             else:
-                # Intraday
-                fetch_ranges = [(fetch_start, fetch_end)]
-                if self.intraday:
-                    # Add padding days to ensure Yahoo returns correct Volume
-                    maxRange = yfcd.yfMaxFetchRange[self.interval]
-                    if maxRange is not None:
-                        s = yfct.GetExchangeSchedule(self.exchange, start_dt.date() - td_14d, end_dt.date() + td_14d)
-                        s = s.iloc[s.index.get_indexer([str(start_dt.date())], method="ffill")[0]-1:]
-                        s = s.iloc[:s.index.get_indexer([str(end_dt.date())], method="bfill")[0]+1+1]
-                        lag = yfcd.exchangeToYfLag[self.exchange]
-                        if start_dt > s["close"].iloc[1]+lag:
-                            s = s.drop(s.index[0])
-                        if end_dt < s["open"].iloc[-2]+lag:
-                            s = s.drop(s.index[-1])
-                        # fetch_ranges = yfcu.ChunkDatesIntoYfFetches(start_d, end_d, s, maxRange.days, overlapDays=2)
-                        fetch_ranges = yfcu.ChunkDatesIntoYfFetches(s, maxRange.days, overlapDays=2)
-                        if debug_yfc:
-                            print("- fetch_ranges:")
-                            pprint(fetch_ranges)
-                        # Don't need to fetch all of padding days, just the end/start of session
-                        # fetch_ranges[0][0] = s["close"].iloc[0] - timedelta(hours=2)
-                        # fetch_ranges[-1][1] = s["open"].iloc[-1] + timedelta(hours=2)
-                        # fetch_ranges[0]["fetch start"] = s["close"].iloc[0] - timedelta(hours=2)
-                        # Update: need start further back for low-volume tickers
-                        fetch_ranges[0]["fetch start"] = s["open"].iloc[0]
-                        fetch_ranges[-1]["fetch end"] = s["open"].iloc[-1] + timedelta(hours=2)
-                        # print("- fetch_ranges:")
-                        # pprint(fetch_ranges)
-                        maxLookback = yfcd.yfMaxFetchLookback[self.interval] - timedelta(seconds=10)
-                        if maxLookback is not None:
-                            maxLookback_dt = (dt_now - maxLookback).tz_convert(tz_exchange)
-                            for i in range(len(fetch_ranges)-1, -1, -1):
-                                if fetch_ranges[i]["fetch start"] < maxLookback_dt:
-                                    if debug_yfc:
-                                        print("- capping start to maxLookback_dt")
-                                    # fetch_ranges[i]["fetch start"] = maxLookback_dt
-                                    fetch_ranges[i]["fetch start"] = maxLookback_dt.ceil("D")
-                                    fetch_ranges[i]["core start"] = fetch_ranges[i]["fetch start"] + td_1d
-                                    if fetch_ranges[i]["fetch start"] >= fetch_ranges[i]["fetch end"]:
-                                        del fetch_ranges[i]
+                end_d = end
+                end_dt = datetime.combine(end, time(0), tz_exchange)
+            if end_dt > dt_now:
+                exchange_midnight_dt = datetime.combine(dtnow_exchange.date()+td_1d, time(0), tz_exchange)
+                if isinstance(end, datetime):
+                    fetch_end = exchange_midnight_dt
+                else:
+                    fetch_end = exchange_midnight_dt.date()
+        if start is not None:
+            if isinstance(start, datetime):
+                start_dt = start
+                # start_d = start.astimezone(tz_exchange).date()
+                start_d = None
+            else:
+                start_d = start
+                start_dt = datetime.combine(start, time(0), tz_exchange)
 
-                df = None
-                for r in fetch_ranges:
+            if (fetch_start is not None) and (fetch_end <= fetch_start):
+                return None
+
+        if fetch_start is not None:
+            if not isinstance(fetch_start, (datetime, pd.Timestamp)):
+                fetch_start_dt = datetime.combine(fetch_start, time(0), self.tz)
+            else:
+                fetch_start_dt = fetch_start
+        if fetch_end is not None:
+            if not isinstance(fetch_end, (datetime, pd.Timestamp)):
+                fetch_end_dt = datetime.combine(fetch_end, time(0), tz_exchange)
+            else:
+                fetch_end_dt = fetch_end
+
+        if fetch_start is not None:
+            if self.interval == yfcd.Interval.Week:
+                # Ensure aligned to week start:
+                fetch_start -= timedelta(days=fetch_start.weekday())
+
+        td_1d = timedelta(days=1)
+        td_14d = timedelta(days=14)
+        if self.interval == yfcd.Interval.Days1:
+            # Add padding days to ensure Yahoo returns correct Volume
+            s = yfct.GetExchangeSchedule(self.exchange, fetch_start - td_14d, fetch_end + td_14d)
+            fetch_start_pad = s.iloc[s.index.get_indexer([str(fetch_start)], method="ffill")[0]-1].name.date()
+
+            first_fetch_failed = False
+            try:
+                df = self._fetchYfHistory_dateRange(fetch_start_pad, fetch_end, prepost, debug)
+                df = df.loc[str(fetch_start):].copy()
+            except yfcd.NoPriceDataInRangeException as e:
+                first_fetch_failed = True
+                ex = e
+
+            if first_fetch_failed and fetch_end is not None:
+                # Try with wider date range, maybe entire range is just before listing date
+                second_fetch_failed = False
+                df_wider = None
+                listing_date_check_tol = yfcd.listing_date_check_tols[self.interval]
+                fetch_start -= 2*listing_date_check_tol
+                fetch_end += 2*listing_date_check_tol
+                if debug_yfc:
+                    msg = "- first fetch failed, trying again with wider range: {} -> {}".format(fetch_start, fetch_end)
+                    yfcl.TracePrint(msg) if yfcl.IsTracingEnabled() else print(msg)
+                try:
+                    df_wider = self._fetchYfHistory_dateRange(fetch_start, fetch_end, prepost, debug)
                     if debug_yfc:
-                        print("- fetching:")
-                        print(r)
-                    fetch_start = r["fetch start"]
-                    fetch_end = r["fetch end"]
-                    dfr = self._fetchYfHistory_dateRange(fetch_start, fetch_end, prepost, debug)
-                    # Discard padding days:
-                    dfr = dfr.loc[r["core start"]: r["core end"] - timedelta(milliseconds=1)]
-                    if debug_yfc:
-                        print("- dfr after discarding padding days:")
-                        print(dfr[[c for c in ["Open", "Low", "High", "Close", "Dividends", "Volume"] if c in dfr.columns]])
-                    if df is None:
-                        df = dfr
+                        msg = "- second fetch returned:"
+                        yfcl.TracePrint(msg) if yfcl.IsTracingEnabled() else print(msg)
+                        print(df_wider)
+                except Exception as e:
+                    if "Data doesn't exist for startDate" in str(e):
+                        second_fetch_failed = True
+                    elif "No data found for this date range" in str(e):
+                        second_fetch_failed = True
                     else:
-                        df = pd.concat([df, dfr], sort=True)
-                    if df.index.duplicated().any():
-                        raise Exception("df contains duplicated dates")
+                        raise e
+
+                if df_wider is not None:
+                    if debug_yfc:
+                        print("- detected listing date =", df_wider.index[0].date())
+                    yfcm.StoreCacheDatum(self.ticker, "listing_date", df_wider.index[0].date())
+                    df = df_wider
+                    if fetch_start is not None:
+                        df = df.loc[fetch_start_dt:]
+                    if fetch_end is not None:
+                        df = df.loc[:fetch_end_dt-timedelta(milliseconds=1)]
+
+            if first_fetch_failed:
+                if second_fetch_failed:
+                    # Hopefully code never comes here
+                    raise ex
+                else:
+                    # Requested date range was just before stock listing date,
+                    # but wider range crosses over so can continue
+                    pass
+
+        elif self.interday:
+            # Add padding days to ensure Yahoo returns correct Volume
+            s = yfct.GetExchangeSchedule(self.exchange, fetch_start - 2*self.itd, fetch_end + 2*self.itd)
+            fetch_start_pad = s.iloc[s.index.get_indexer([str(fetch_start)], method="ffill")[0]-1].name.date()
+            fetch_end_pad   = s.iloc[s.index.get_indexer([str(fetch_end)], method="bfill")[0]+1].name.date()
+
+            df = self._fetchYfHistory_dateRange(fetch_start_pad, fetch_end_pad, prepost, debug)
+            df = df.loc[str(fetch_start) : str(fetch_end-td_1d)].copy()
+
+        else:
+            # Intraday
+            fetch_ranges = [(fetch_start, fetch_end)]
+            if self.intraday:
+                # Add padding days to ensure Yahoo returns correct Volume
+                maxRange = yfcd.yfMaxFetchRange[self.interval]
+                if maxRange is not None:
+                    s = yfct.GetExchangeSchedule(self.exchange, start_dt.date() - td_14d, end_dt.date() + td_14d)
+                    s = s.iloc[s.index.get_indexer([str(start_dt.date())], method="ffill")[0]-1:]
+                    s = s.iloc[:s.index.get_indexer([str(end_dt.date())], method="bfill")[0]+1+1]
+                    lag = yfcd.exchangeToYfLag[self.exchange]
+                    if start_dt > s["close"].iloc[1]+lag:
+                        s = s.drop(s.index[0])
+                    if end_dt < s["open"].iloc[-2]+lag:
+                        s = s.drop(s.index[-1])
+                    # fetch_ranges = yfcu.ChunkDatesIntoYfFetches(start_d, end_d, s, maxRange.days, overlapDays=2)
+                    fetch_ranges = yfcu.ChunkDatesIntoYfFetches(s, maxRange.days, overlapDays=2)
+                    if debug_yfc:
+                        print("- fetch_ranges:")
+                        pprint(fetch_ranges)
+                    # Don't need to fetch all of padding days, just the end/start of session
+                    # fetch_ranges[0][0] = s["close"].iloc[0] - timedelta(hours=2)
+                    # fetch_ranges[-1][1] = s["open"].iloc[-1] + timedelta(hours=2)
+                    # fetch_ranges[0]["fetch start"] = s["close"].iloc[0] - timedelta(hours=2)
+                    # Update: need start further back for low-volume tickers
+                    fetch_ranges[0]["fetch start"] = s["open"].iloc[0]
+                    fetch_ranges[-1]["fetch end"] = s["open"].iloc[-1] + timedelta(hours=2)
+                    # print("- fetch_ranges:")
+                    # pprint(fetch_ranges)
+                    maxLookback = yfcd.yfMaxFetchLookback[self.interval] - timedelta(seconds=10)
+                    if maxLookback is not None:
+                        maxLookback_dt = (dt_now - maxLookback).tz_convert(tz_exchange)
+                        for i in range(len(fetch_ranges)-1, -1, -1):
+                            if fetch_ranges[i]["fetch start"] < maxLookback_dt:
+                                if debug_yfc:
+                                    print("- capping start to maxLookback_dt")
+                                # fetch_ranges[i]["fetch start"] = maxLookback_dt
+                                fetch_ranges[i]["fetch start"] = maxLookback_dt.ceil("D")
+                                fetch_ranges[i]["core start"] = fetch_ranges[i]["fetch start"] + td_1d
+                                if fetch_ranges[i]["fetch start"] >= fetch_ranges[i]["fetch end"]:
+                                    del fetch_ranges[i]
+
+            df = None
+            for r in fetch_ranges:
+                if debug_yfc:
+                    print("- fetching:")
+                    print(r)
+                fetch_start = r["fetch start"]
+                fetch_end = r["fetch end"]
+                dfr = self._fetchYfHistory_dateRange(fetch_start, fetch_end, prepost, debug)
+                # Discard padding days:
+                dfr = dfr.loc[r["core start"]: r["core end"] - timedelta(milliseconds=1)]
+                if debug_yfc:
+                    print("- dfr after discarding padding days:")
+                    print(dfr[[c for c in ["Open", "Low", "High", "Close", "Dividends", "Volume"] if c in dfr.columns]])
+                if df is None:
+                    df = dfr
+                else:
+                    df = pd.concat([df, dfr], sort=True)
+                if df.index.duplicated().any():
+                    raise Exception("df contains duplicated dates")
 
         fetch_dt_utc = pd.Timestamp.utcnow().tz_convert(ZoneInfo("UTC"))
 
@@ -1913,25 +1891,12 @@ class PriceHistory:
                 found_listing_day = False
                 listing_day = None
                 if df is not None and not df.empty:
-                    if pstr == "max":
+                    tol = yfcd.listing_date_check_tols[self.interval]
+                    fetch_start_d = fetch_start.date() if isinstance(fetch_start, datetime) else fetch_start
+                    if (df.index[0].date() - fetch_start_d) > tol:
+                        # Yahoo returned data starting significantly after requested start date, indicates
+                        # request is before stock listed on exchange
                         found_listing_day = True
-                        listing_day = df.index[0]
-                    else:
-                        if pstr is not None:
-                            fetch_start, fetch_end_d = yfct.MapPeriodToDates(self.exchange, yfcd.periodStrToEnum[pstr], self.interval)
-                        tol = yfcd.listing_date_check_tols[self.interval]
-                        if fetch_start is not None:
-                            fetch_start_d = fetch_start.date() if isinstance(fetch_start, datetime) else fetch_start
-                            if (df.index[0].date() - fetch_start_d) > tol:
-                                # Yahoo returned data starting significantly after requested start date, indicates
-                                # request is before stock listed on exchange
-                                found_listing_day = True
-                        else:
-                            start_expected = yfct.DtSubtractPeriod(fetch_dt_utc.date()+td_1d, yfcd.periodStrToEnum[pstr])
-                            # if self.interval == yfcd.Interval.Week:
-                            #     start_expected -= timedelta(days=start_expected.weekday())
-                            if (df.index[0].date() - start_expected) > tol:
-                                found_listing_day = True
                     if debug_yfc:
                         msg = "- found_listing_day = {}".format(found_listing_day)
                         yfcl.TracePrint(msg) if yfcl.IsTracingEnabled() else print(msg)
@@ -1958,93 +1923,92 @@ class PriceHistory:
                         start = max(start, listing_day)
                         start_d = start
 
-        if pstr is None:
-            if df is None:
-                received_interval_starts = None
+        if df is None:
+            received_interval_starts = None
+        else:
+            if self.interday:
+                received_interval_starts = df.index.date
             else:
-                if self.interday:
-                    received_interval_starts = df.index.date
+                received_interval_starts = df.index.to_pydatetime()
+        try:
+            intervals_missing_df = yfct.IdentifyMissingIntervals(self.exchange, start, end, self.interval, received_interval_starts, ignore_breaks=True)
+        except yfcd.NoIntervalsInRangeException:
+            intervals_missing_df = None
+        if (intervals_missing_df is not None) and (not intervals_missing_df.empty):
+            # First, ignore any missing intervals today
+            # For missing intervals during last 2 weeks, if few in number, then fill with NaNs
+            # For missing intervals older than 2 weeks, fill all with NaNs
+
+            if debug_yfc:
+                n = intervals_missing_df.shape[0]
+                if n <= 3:
+                    msg = f"YF data missing {n} intervals: {intervals_missing_df['open'].to_numpy()}"
                 else:
-                    received_interval_starts = df.index.to_pydatetime()
-            try:
-                intervals_missing_df = yfct.IdentifyMissingIntervals(self.exchange, start, end, self.interval, received_interval_starts, ignore_breaks=True)
-            except yfcd.NoIntervalsInRangeException:
-                intervals_missing_df = None
-            if (intervals_missing_df is not None) and (not intervals_missing_df.empty):
-                # First, ignore any missing intervals today
-                # For missing intervals during last 2 weeks, if few in number, then fill with NaNs
-                # For missing intervals older than 2 weeks, fill all with NaNs
+                    msg = f"YF data missing {n} intervals"
+                yfcl.TracePrint('- ' + msg) if yfcl.IsTracingEnabled() else print('- ' + msg)
 
-                if debug_yfc:
-                    n = intervals_missing_df.shape[0]
-                    if n <= 3:
-                        msg = f"YF data missing {n} intervals: {intervals_missing_df['open'].to_numpy()}"
-                    else:
-                        msg = f"YF data missing {n} intervals"
-                    yfcl.TracePrint('- ' + msg) if yfcl.IsTracingEnabled() else print('- ' + msg)
+            cutoff_d = date.today() - timedelta(days=14)
+            if self.interday:
+                f_recent = intervals_missing_df["open"].to_numpy() > cutoff_d
+            else:
+                f_recent = intervals_missing_df["open"].dt.date > cutoff_d
+            intervals_missing_df_recent = intervals_missing_df[f_recent]
+            intervals_missing_df_old = intervals_missing_df[~f_recent]
+            missing_intervals_to_add = None
+            if not intervals_missing_df_old.empty:
+                missing_intervals_to_add = intervals_missing_df_old["open"].to_numpy()
 
-                cutoff_d = date.today() - timedelta(days=14)
+            if not intervals_missing_df_recent.empty:
+                # If very few intervals and not today (so Yahoo should have data),
+                # then assume no trading occurred and insert NaN rows.
+                # Normally Yahoo has already filled with NaNs but sometimes they forget/are late
+                nm = intervals_missing_df_recent.shape[0]
                 if self.interday:
-                    f_recent = intervals_missing_df["open"].to_numpy() > cutoff_d
+                    threshold = 1
                 else:
-                    f_recent = intervals_missing_df["open"].dt.date > cutoff_d
-                intervals_missing_df_recent = intervals_missing_df[f_recent]
-                intervals_missing_df_old = intervals_missing_df[~f_recent]
-                missing_intervals_to_add = None
-                if not intervals_missing_df_old.empty:
-                    missing_intervals_to_add = intervals_missing_df_old["open"].to_numpy()
-
-                if not intervals_missing_df_recent.empty:
-                    # If very few intervals and not today (so Yahoo should have data),
-                    # then assume no trading occurred and insert NaN rows.
-                    # Normally Yahoo has already filled with NaNs but sometimes they forget/are late
-                    nm = intervals_missing_df_recent.shape[0]
-                    if self.interday:
-                        threshold = 1
+                    if self.itd <= timedelta(minutes=2):
+                        threshold = 10
+                    elif self.itd <= timedelta(minutes=5):
+                        threshold = 3
                     else:
-                        if self.itd <= timedelta(minutes=2):
-                            threshold = 10
-                        elif self.itd <= timedelta(minutes=5):
-                            threshold = 3
-                        else:
-                            threshold = 2
-                    if nm <= threshold:
-                        if debug_yfc:
-                            msg = "- found missing intervals, inserting nans:"
-                            yfcl.TracePrint(msg) if yfcl.IsTracingEnabled() else print(msg)
-                            print(intervals_missing_df_recent)
-                        if missing_intervals_to_add is None:
-                            missing_intervals_to_add = intervals_missing_df_recent["open"].to_numpy()
-                        else:
-                            missing_intervals_to_add = np.append(missing_intervals_to_add, intervals_missing_df_recent["open"].to_numpy())
-
-                if missing_intervals_to_add is not None:
-                    n = missing_intervals_to_add.shape[0]
-                    if n <= 3:
-                        msg = f"insertings NaNs for {n} missing intervals: {missing_intervals_to_add}"
-                    else:
-                        msg = f"insertings NaNs for {n} missing intervals"
+                        threshold = 2
+                if nm <= threshold:
                     if debug_yfc:
-                        yfcl.TracePrint('- ' + msg) if yfcl.IsTracingEnabled() else print('- ' + msg)
+                        msg = "- found missing intervals, inserting nans:"
+                        yfcl.TracePrint(msg) if yfcl.IsTracingEnabled() else print(msg)
+                        print(intervals_missing_df_recent)
+                    if missing_intervals_to_add is None:
+                        missing_intervals_to_add = intervals_missing_df_recent["open"].to_numpy()
                     else:
-                        self.manager.LogEvent("info", "PriceManager", msg)
+                        missing_intervals_to_add = np.append(missing_intervals_to_add, intervals_missing_df_recent["open"].to_numpy())
 
-                    nm = missing_intervals_to_add.shape[0]
-                    df_missing = pd.DataFrame(data={k: [np.nan]*nm for k in yfcd.yf_data_cols}, index=missing_intervals_to_add)
-                    df_missing['Volume'] = 0 # Needs to be int type
-                    if "Repaired?" in df.columns:
-                        df_missing["Repaired?"] = False
-                    df_missing.index = pd.to_datetime(df_missing.index)
-                    if self.interday:
-                        df_missing.index = df_missing.index.tz_localize(tz_exchange)
-                    for c in ["Volume", "Dividends", "Stock Splits"]:
-                        df_missing[c] = 0
-                    if df is None:
-                        df = df_missing
-                    else:
-                        df = pd.concat([df, df_missing], sort=True)
-                        df.index = pd.to_datetime(df.index, utc=True).tz_convert(tz_exchange)
-                        df = df.sort_index()
+            if missing_intervals_to_add is not None:
+                n = missing_intervals_to_add.shape[0]
+                if n <= 3:
+                    msg = f"insertings NaNs for {n} missing intervals: {missing_intervals_to_add}"
+                else:
+                    msg = f"insertings NaNs for {n} missing intervals"
+                if debug_yfc:
+                    yfcl.TracePrint('- ' + msg) if yfcl.IsTracingEnabled() else print('- ' + msg)
+                else:
+                    self.manager.LogEvent("info", "PriceManager", msg)
+
+                nm = missing_intervals_to_add.shape[0]
+                df_missing = pd.DataFrame(data={k: [np.nan]*nm for k in yfcd.yf_data_cols}, index=missing_intervals_to_add)
+                df_missing['Volume'] = 0 # Needs to be int type
+                if "Repaired?" in df.columns:
+                    df_missing["Repaired?"] = False
+                df_missing.index = pd.to_datetime(df_missing.index)
+                if self.interday:
+                    df_missing.index = df_missing.index.tz_localize(tz_exchange)
+                for c in ["Volume", "Dividends", "Stock Splits"]:
+                    df_missing[c] = 0
+                if df is None:
+                    df = df_missing
+                else:
+                    df = pd.concat([df, df_missing], sort=True)
+                    df.index = pd.to_datetime(df.index, utc=True).tz_convert(tz_exchange)
+                    df = df.sort_index()
 
         # Improve tolerance to calendar missing a recent new holiday:
         if (df is None) or df.empty:
@@ -2080,7 +2044,7 @@ class PriceHistory:
                     yfcm.StoreCacheDatum(self.ticker, "new_divs", df_divs)
 
         # Remove any out-of-range data:
-        if (n > 0) and (pstr is None):
+        if (n > 0):
             # NOTE: YF has a bug-fix pending merge: https://github.com/ranaroussi/yfinance/pull/1012
             if end is not None:
                 if self.interday:
@@ -2565,7 +2529,7 @@ class PriceHistory:
             log_msg = "PM::_reconstruct_intervals_batch() returning"
             yfcl.TraceExit(log_msg)
             return df
-        sub_interday = sub_interval in [yfcd.Interval.Days1, yfcd.Interval.Week, yfcd.Interval.Months1, yfcd.Interval.Months3]
+        sub_interday = sub_interval in [yfcd.Interval.Days1, yfcd.Interval.Week]#, yfcd.Interval.Months1, yfcd.Interval.Months3]
         sub_intraday = not sub_interday
 
         df = df.sort_index()
@@ -2644,9 +2608,10 @@ class PriceHistory:
         #         dts_groups.append([dt])
         #     last_dt = dt
         #     last_ind = ind
-        if self.interval == yfcd.Interval.Months1:
-            grp_max_size = dateutil.relativedelta.relativedelta(years=2)
-        elif self.interval == yfcd.Interval.Week:
+        # if self.interval == yfcd.Interval.Months1:
+        #     grp_max_size = dateutil.relativedelta.relativedelta(years=2)
+        # elif self.interval == yfcd.Interval.Week:
+        if self.interval == yfcd.Interval.Week:
             grp_max_size = dateutil.relativedelta.relativedelta(years=2)
         elif self.interval == yfcd.Interval.Days1:
             grp_max_size = dateutil.relativedelta.relativedelta(years=2)
@@ -2784,7 +2749,7 @@ class PriceHistory:
                         print("- fetching df_fine via _fetchYfHistory() wrapper")
                         print(f"- - fetch_start={fetch_start} fetch_end={fetch_end}")
                     try:
-                        df_fine = hist_sub._fetchYfHistory(pstr=None, start=fetch_start, end=fetch_end, prepost=prepost, debug=False, verify_intervals=False, disable_yfc_metadata=True)
+                        df_fine = hist_sub._fetchYfHistory(start=fetch_start, end=fetch_end, prepost=prepost, debug=False, verify_intervals=False, disable_yfc_metadata=True)
                     except yfcd.NoPriceDataInRangeException as e:
                         if debug:
                             print("- fetch of fine price data failed:" + str(e))
@@ -3240,8 +3205,8 @@ class PriceHistory:
         largest_change_pct = 5 * sd_pct
         if self.interday and self.interval != yfcd.Interval.Days1:
             largest_change_pct *= 3
-            if self.interval in [yfcd.Interval.Months1, yfcd.Interval.Months3]:
-                largest_change_pct *= 2
+            # if self.interval in [yfcd.Interval.Months1, yfcd.Interval.Months3]:
+            #     largest_change_pct *= 2
         if max(split, split_rcp) < 1.0 + largest_change_pct:
             msg = "Split ratio too close to normal price volatility. Won't repair"
             self.manager.LogEvent('debug', 'price-repair-split-'+self.istr, msg)
@@ -3759,8 +3724,8 @@ class PriceHistory:
                 if debug:
                     print("- post_csf of daily date range {}->{} = {}".format(df_daily.index[0], df_daily.index[-1], post_csf))
 
-        elif self.interval in [yfcd.Interval.Months1, yfcd.Interval.Months3]:
-            raise Exception("not implemented")
+        # elif self.interval in [yfcd.Interval.Months1, yfcd.Interval.Months3]:
+        #     raise Exception("not implemented")
 
         # If 'df' does not contain all stock splits until present, then
         # set 'post_csf' to cumulative stock split factor just after last 'df' date

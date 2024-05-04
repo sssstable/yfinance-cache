@@ -128,7 +128,7 @@ class Ticker:
 
         start_d = None ; end_d = None
         start_dt = None ; end_dt = None
-        interday = interval in [yfcd.Interval.Days1, yfcd.Interval.Week, yfcd.Interval.Months1, yfcd.Interval.Months3]
+        interday = interval in [yfcd.Interval.Days1, yfcd.Interval.Week]#, yfcd.Interval.Months1, yfcd.Interval.Months3]
         if start is not None:
             start_dt, start_d = self._process_user_dt(start)
             if start_dt > dt_now:
@@ -163,10 +163,10 @@ class Ticker:
                 max_age = datetime.timedelta(hours=4)
             elif interval == yfcd.Interval.Week:
                 max_age = datetime.timedelta(hours=60)
-            elif interval == yfcd.Interval.Months1:
-                max_age = datetime.timedelta(days=15)
-            elif interval == yfcd.Interval.Months3:
-                max_age = datetime.timedelta(days=45)
+            # elif interval == yfcd.Interval.Months1:
+            #     max_age = datetime.timedelta(days=15)
+            # elif interval == yfcd.Interval.Months3:
+            #     max_age = datetime.timedelta(days=45)
             else:
                 max_age = 0.5*yfcd.intervalToTimedelta[interval]
             if start is not None:
