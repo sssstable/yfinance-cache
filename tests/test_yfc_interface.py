@@ -401,7 +401,7 @@ class Test_Yfc_Interface(Test_Base):
         tkr_candidates = ["BHG.JO", "INTC", "MEL.NZ"]
         interval = yfcd.Interval.Days1
 
-        dt_now_utc = datetime.utcnow()
+        dt_now_utc = pd.Timestamp.utcnow()
         dt_now = dt_now_utc.replace(tzinfo=ZoneInfo("UTC"))
 
         start_d = dt_now_utc.date() -timedelta(days=7)
@@ -428,7 +428,7 @@ class Test_Yfc_Interface(Test_Base):
         # Test 'Final?' column
         tkr_candidates = ["BHG.JO", "INTC", "MEL.NZ"]
 
-        dt_now_utc = datetime.utcnow()
+        dt_now_utc = pd.Timestamp.utcnow()
         dt_now = dt_now_utc.replace(tzinfo=ZoneInfo("UTC"))
 
         # start_d = dt_now_utc.date() - timedelta(days=7)
@@ -601,7 +601,7 @@ class Test_Yfc_Interface(Test_Base):
         del tkr_candidates[tkr_candidates.index("HLTH")]
         del tkr_candidates[tkr_candidates.index("MEL.NZ")]
 
-        dt_now = datetime.utcnow().replace(tzinfo=ZoneInfo("UTC"))
+        dt_now = pd.Timestamp.utcnow().replace(tzinfo=ZoneInfo("UTC"))
         start_dt = dt_now - timedelta(days=7)
         end_dt = dt_now+timedelta(days=1)
         start_d = start_dt.date()
@@ -692,7 +692,7 @@ class Test_Yfc_Interface(Test_Base):
         #
         tkr_candidates = ["BHG.JO"]
         #
-        dt_now = datetime.utcnow().replace(tzinfo=ZoneInfo("UTC"))
+        dt_now = pd.Timestamp.utcnow().replace(tzinfo=ZoneInfo("UTC"))
         td_1d = timedelta(days=1)
         for tkr in tkr_candidates:
             dat = yfc.Ticker(tkr, session=None)
@@ -759,7 +759,7 @@ class Test_Yfc_Interface(Test_Base):
         tkr_candidates = self.tkrs
         interval = yfcd.Interval.Days1
         #
-        dt_now = datetime.utcnow().replace(tzinfo=ZoneInfo("UTC"))
+        dt_now = pd.Timestamp.utcnow().replace(tzinfo=ZoneInfo("UTC"))
         d_now = dt_now.date()
         for tkr in tkr_candidates:
             dat = yfc.Ticker(tkr, session=None)
@@ -801,7 +801,7 @@ class Test_Yfc_Interface(Test_Base):
         tkr_candidates = self.tkrs
         interval = yfcd.Interval.Week
         #
-        dt_now = datetime.utcnow().replace(tzinfo=ZoneInfo("UTC"))
+        dt_now = pd.Timestamp.utcnow().replace(tzinfo=ZoneInfo("UTC"))
         d_now = dt_now.date()
         for tkr in tkr_candidates:
             dat = yfc.Ticker(tkr, session=self.session)
@@ -857,7 +857,7 @@ class Test_Yfc_Interface(Test_Base):
         tz = ZoneInfo(tz_name)
         yfct.SetExchangeTzName(exchange, tz_name)
 
-        dt_now = datetime.utcnow().replace(tzinfo=ZoneInfo("UTC"))
+        dt_now = pd.Timestamp.utcnow().replace(tzinfo=ZoneInfo("UTC"))
         # d_now = dt_now.date()
         d_now = dt_now.astimezone(tz).date()
         td_1d = timedelta(days=1)
@@ -914,7 +914,7 @@ class Test_Yfc_Interface(Test_Base):
         exchange = dat.fast_info["exchange"]
         yfct.SetExchangeTzName(exchange, dat.fast_info["timezone"])
 
-        dt_now = datetime.utcnow().replace(tzinfo=ZoneInfo("UTC"))
+        dt_now = pd.Timestamp.utcnow().replace(tzinfo=ZoneInfo("UTC"))
         if yfct.IsTimestampInActiveSession(exchange, dt_now):
             df = dat.history(start=start_d, end=end_d, interval="1d", keepna=True)
             idx = 2 # 3rd row = 2022-7-6
