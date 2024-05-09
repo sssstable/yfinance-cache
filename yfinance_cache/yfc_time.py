@@ -609,9 +609,14 @@ def GetExchangeScheduleIntervals(exchange, interval, start, end, discardTimes=No
             return None
         # Transfer IntervalIndex to DataFrame so can modify
         intervals_df = pd.DataFrame(data={"interval_open": ti.left.tz_convert(tz), "interval_close": ti.right.tz_convert(tz)})
-        yfc_logger.debug(f"Inside GetExchangeScheduleIntervals(), dt_now = {dt_now}, and last pre-prune interval = {intervals_df['interval_open'].iloc[-1]}")
+        yfc_logger.debug(f"Inside GetExchangeScheduleIntervals({istr}), dt_now = {dt_now}, and last pre-prune interval = {intervals_df['interval_open'].iloc[-1]}")
         if exclude_future:
-            intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now]
+            # intervals_df = intervals_df[intervals_df["interval_open"] <= dt_now]
+            f_prune = intervals_df["interval_open"] > dt_now
+            if f_prune.any():
+                intervals_df_pruned = intervals_df[f_prune]
+                yfc_logger.debug(f"GetExchangeScheduleIntervals({istr}) pruning these future intervals: {intervals_df_pruned.index[0]} -> {intervals_df_pruned.index[-1]}")
+                intervals_df = intervals_df[~f_prune]
         if "auction" in cal.schedule.columns:
             sched = GetExchangeSchedule(exchange, start_d, end_d)
             sched.index = sched.index.date
@@ -1085,7 +1090,7 @@ def GetTimestampCurrentInterval_batch(exchange, ts, interval, discardTimes=None,
         t0 = ts[0]
         tl = ts[len(ts)-1]
         tis = GetExchangeScheduleIntervals(exchange, interval, t0-itd, tl+itd, ignore_breaks=ignore_breaks)
-        yfc_logger.debug(f"GetExchangeScheduleIntervals() returned {tis[0]} -> {tis[-1]}")
+        yfc_logger.debug(f"GetExchangeScheduleIntervals({yfcd.intervalToString[interval]}) returned {tis[0]} -> {tis[-1]}")
         tz_tis = tis[0].left.tzinfo
         if ts[0].tzinfo != tz_tis:
             ts = [t.astimezone(tz_tis) for t in ts]
